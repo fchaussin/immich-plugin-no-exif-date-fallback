@@ -1,0 +1,19 @@
+{
+  "name": "immich-plugin-date-recovery",
+  "version": "0.1.0",
+  "description": "Immich plugin that repairs assets dated 1970-01-01 by recovering the date the file itself carries.",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "prepare:build": "plugin-sdk prepareBuild manifest.json",
+    "bundle": "esbuild src/index.ts --bundle --format=esm --target=es2022 --external:extism:host --outfile=dist/bundle.js",
+    "build": "npm run prepare:build && npm run bundle && extism-js dist/bundle.js -i dist/index.d.ts -o dist/plugin.wasm",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@extism/js-pdk": "^1.1.1",
+    "@immich/plugin-sdk": "^0.0.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.6.0"
+  }
+}
