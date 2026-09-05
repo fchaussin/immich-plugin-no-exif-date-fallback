@@ -1,6 +1,6 @@
 {
   "name": "immich-plugin-no-exif-date-fallback",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "title": "No-EXIF Date Fallback",
   "description": "Photos received through WhatsApp, Messenger or Instagram arrive with their EXIF stripped entirely, and the Immich mobile app then dates them 1 January 1970. This falls back to the file's own modification date — the date your phone displays — which survives the upload intact.",
   "author": "Francois Chaussin",
@@ -10,7 +10,9 @@
       "name": "fallbackToFileDate",
       "title": "Use the file's date when EXIF has none",
       "description": "An asset sitting on the Unix epoch was dated from an empty capture date, not from its content. Replace that date with the file's own modification date.",
-      "types": ["AssetV1"],
+      "types": [
+        "AssetV1"
+      ],
       "hostFunctions": false,
       "schema": {
         "type": "object",
@@ -18,7 +20,11 @@
           "epochWindowHours": {
             "type": "number",
             "title": "Hours around 1 January 1970 to treat as broken",
-            "description": "The bug lands photos exactly on the Unix epoch, so only dates within this many hours of it are repaired. A day either side absorbs timezone offsets while leaving genuinely old photos — a scanned 1965 picture, say — untouched. Default 48."
+            "description": "The bug lands photos exactly on the Unix epoch, so only dates within this many hours of it are repaired. 48 absorbs every timezone offset (max 14 h) while leaving genuinely old photos alone — a scanned 1965 picture stays untouched. Raising this towards 8760 (a year) starts overwriting real dates in 1970: only do that if you know your library has none.",
+            "default": 48,
+            "minimum": 0,
+            "maximum": 8760,
+            "precision": 1
           }
         }
       }
@@ -33,7 +39,9 @@
       "steps": [
         {
           "method": "immich-plugin-no-exif-date-fallback#fallbackToFileDate",
-          "config": { "epochWindowHours": 48 },
+          "config": {
+            "epochWindowHours": 48
+          },
           "enabled": true
         }
       ]

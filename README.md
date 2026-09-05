@@ -86,9 +86,15 @@ is — only its date changes, which is all the timeline needs.
 
 ### Configuration
 
-| Option | Default | Meaning |
-|---|---|---|
-| `epochWindowHours` | `48` | How far from 1 January 1970 a date can sit and still count as the sentinel. |
+| Option | Default | Range | Meaning |
+|---|---|---|---|
+| `epochWindowHours` | `48` | `0`–`8760` | How far from 1 January 1970 a date can sit and still count as the sentinel. |
+
+The default is declared in the manifest, so the field arrives filled in rather
+than blank, and the bounds are enforced by the server rather than by trust.
+Raising it towards `8760` (a year) reinstates the old "all of 1970 is broken"
+behaviour and will overwrite real dates from that year — an informed choice
+now, instead of the default it used to be.
 
 The bug lands photos on the epoch *exactly* — `Math.min` against a zero — so the
 match is deliberately narrow. The window exists only because `localDateTime` is
