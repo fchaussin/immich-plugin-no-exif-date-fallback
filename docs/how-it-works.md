@@ -2,13 +2,15 @@
 
 ## The problem
 
-Apps that strip metadata on send — WhatsApp, Messenger, Instagram — produce
-files with **no EXIF segment at all**. Not a reduced EXIF: none. The capture
-date is genuinely gone from the file's bytes, and no tool recovers it.
+Apps that strip metadata on send — WhatsApp, Messenger, Instagram — can produce
+files with **no EXIF segment at all**. Not a reduced EXIF: none. Whether it
+happens depends on the app, the version and how the image was sent, so it hits
+some of your photos and not others; when it does, the capture date is genuinely
+gone from the file's bytes and no tool recovers it.
 
-The Immich **mobile** app then sends `MediaStore.DATE_TAKEN = 0` for these
-files. The server takes the earliest of the dates it is given, and zero always
-wins — so the asset lands on the epoch. Uploading the very same file through the
+For such a file the Immich **mobile** app sends `MediaStore.DATE_TAKEN = 0`. The
+server takes the earliest of the dates it is given, and zero always wins — so
+the asset lands on the epoch. Uploading the very same file through the
 **web** UI dates it correctly, which is what makes this so confusing.
 
 Reported repeatedly upstream:

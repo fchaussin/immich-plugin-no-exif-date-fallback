@@ -5,9 +5,9 @@
 [![Immich](https://img.shields.io/badge/Immich-v3.0.0%2B-4250af)](https://immich.app)
 [![Licence](https://img.shields.io/github/license/fchaussin/immich-plugin-no-exif-date-fallback)](LICENSE)
 
-Photos received through **WhatsApp, Messenger or Instagram** arrive with their
-EXIF stripped entirely, and the Immich mobile app then files them under
-**1 January 1970**.
+Photos received through **WhatsApp, Messenger or Instagram** sometimes arrive
+with their EXIF stripped entirely, and when the Immich mobile app uploads those,
+it files them under **1 January 1970**.
 
 This plugin dates them from the file itself — `fileModifiedAt`, the date your
 phone displays, which survives the upload intact. It does not guess and does not

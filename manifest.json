@@ -1,8 +1,8 @@
 {
   "name": "immich-plugin-no-exif-date-fallback",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "title": "No-EXIF Date Fallback",
-  "description": "Photos received through WhatsApp, Messenger or Instagram arrive with their EXIF stripped entirely, and the Immich mobile app then dates them 1 January 1970. This falls back to the file's own modification date — the date your phone displays — which survives the upload intact.",
+  "description": "Photos received through WhatsApp, Messenger or Instagram sometimes arrive with their EXIF stripped entirely, and when the Immich mobile app uploads those it dates them 1 January 1970. This falls back to the file's own modification date — the date your phone displays — which survives the upload intact.",
   "author": "Francois Chaussin",
   "wasmPath": "dist/plugin.wasm",
   "methods": [
@@ -34,7 +34,7 @@
     {
       "name": "immich-plugin-no-exif-date-fallback",
       "title": "Fix photos dated 1 January 1970",
-      "description": "Runs after metadata extraction. WhatsApp, Messenger and Instagram photos arrive with no EXIF date and land on 1 January 1970; this dates them from the file instead.",
+      "description": "Runs after metadata extraction. WhatsApp, Messenger and Instagram photos sometimes arrive with no EXIF date and land on 1 January 1970; this dates them from the file instead.",
       "trigger": "AssetMetadataExtraction",
       "steps": [
         {

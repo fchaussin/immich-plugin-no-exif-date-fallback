@@ -5,11 +5,13 @@
  *
  * ── The bug this works around ──
  *
- * Apps that strip metadata on send (WhatsApp, Messenger, Instagram) produce
- * files with *no EXIF segment at all* — not an impoverished EXIF, none. The
- * capture date is genuinely gone from the file's content, and no tool will
- * recover it. Filename heuristics only help for WhatsApp's `IMG-20250805-WA…`
- * pattern; Messenger's `Messenger_creation_<uuid>.jpg` carries nothing.
+ * Apps that strip metadata on send (WhatsApp, Messenger, Instagram) can produce
+ * files with *no EXIF segment at all* — not an impoverished EXIF, none. Whether
+ * it happens depends on the app, its version and how the image was sent, so it
+ * affects some photos and not others. When it does, the capture date is
+ * genuinely gone from the file's content and no tool will recover it. Filename
+ * heuristics only help for WhatsApp's `IMG-20250805-WA…` pattern; Messenger's
+ * `Messenger_creation_<uuid>.jpg` carries nothing.
  *
  * But the date the phone *displays* — the one every file manager shows — is the
  * file's modification time, and it survives the upload intact. Immich stores it
