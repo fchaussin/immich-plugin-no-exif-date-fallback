@@ -1,3 +1,9 @@
 node_modules/
 dist/
 *.wasm
+
+# install.sh (extism-js) downloads its toolchain into the working directory.
+# Running a build with the repository as CWD drops ~350 MB of binaryen here.
+binaryen/
+binaryen-*.tar.gz
+install.sh
