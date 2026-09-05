@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned on purpose: the install script defaults to "latest", which would make
+  # the Wasm we ship depend on whatever was released that morning.
+  EXTISM_JS_VERSION: v1.7.0
+
+jobs:
+  build:
+    # ubuntu-24.04 or newer: the extism-js binary is linked against GLIBC 2.39,
+    # so ubuntu-22.04 fails at `extism-js --version` with a version-not-found
+    # error that looks nothing like a toolchain problem.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # 24+: runs the TypeScript tests directly via type stripping, so the
+          # suite needs no build step of its own.
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # install.sh also installs the binaryen version it is pinned against
+      # (wasm-merge, wasm-opt). Do NOT pre-install binaryen from apt: the script
+      # skips its own pinned build when it finds those on PATH, which swaps a
+      # known-good toolchain for whatever the distro ships. It picks a bin
+      # directory already on PATH, so nothing needs adding to GITHUB_PATH.
+      - name: Install extism-js
+        run: |
+          curl -fsSL -O https://raw.githubusercontent.com/extism/js-pdk/main/install.sh
+          bash install.sh "$EXTISM_JS_VERSION"
+
+      - name: Build the plugin
+        run: |
+          extism-js --version
+          npm run build
+
+      - name: Check the artefact is a real Wasm module
+        run: |
+          test -s dist/plugin.wasm
+          # Wasm magic number: 0x00 61 73 6d ("\0asm")
+          head -c 4 dist/plugin.wasm | od -An -tx1 | grep -q '00 61 73 6d'
+          ls -lh dist/plugin.wasm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin
+          path: |
+            dist/plugin.wasm
+            manifest.json
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: plugin
+
+      # The manifest's version is what Immich stores, and it is what makes a
+      # reinstall visible as an upgrade. A tag that disagrees with it would ship
+      # a build the server cannot tell apart from the previous one.
+      - name: Check the tag matches the manifest version
+        run: |
+          manifest_version=$(python3 -c 'import json;print(json.load(open("manifest.json"))["version"])')
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$manifest_version" != "$tag_version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match manifest version $manifest_version"
+            exit 1
+          fi
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            plugin.wasm
+            manifest.json
+          generate_release_notes: true

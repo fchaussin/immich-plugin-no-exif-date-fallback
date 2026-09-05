@@ -1,7 +1,11 @@
-# immich-plugin-date-recovery
+# immich-plugin-no-exif-date-fallback
 
-An [Immich](https://immich.app) plugin that repairs photos which land on
-**1 January 1970** in your timeline.
+An [Immich](https://immich.app) plugin for photos that arrive **with no EXIF
+date at all** — the ones WhatsApp, Messenger and Instagram strip on send — and
+therefore land on **1 January 1970** in your timeline.
+
+It falls back to the date the file itself carries: the one your phone displays,
+which survives the upload intact.
 
 It does not guess, and it does not parse filenames. The correct date is already
 in Immich's database — this plugin just uses it.
@@ -84,18 +88,42 @@ Developed and tested against **v3.1.0**.
 
 ## Build
 
-Needs [`extism-js`](https://github.com/extism/js-pdk) on your `PATH`.
+Every push is built by [CI](.github/workflows/ci.yml), and tagged commits publish
+`plugin.wasm` and `manifest.json` to
+[Releases](https://github.com/fchaussin/immich-plugin-no-exif-date-fallback/releases)
+— so you do not need a local toolchain to get a binary.
+
+To build it yourself you need [`extism-js`](https://github.com/extism/js-pdk)
+and [binaryen](https://github.com/WebAssembly/binaryen) (`wasm-merge`,
+`wasm-opt`) on your `PATH`:
 
 ```sh
-npm install
+npm ci
+npm test          # the decision logic, on a plain Node runtime
 npm run build     # → dist/plugin.wasm
 ```
 
+Two things that cost time if you build a plugin of your own:
+
+- **Bundle to CJS, not ESM.** `extism-js` embeds QuickJS, which rejects module
+  syntax outright: an ESM bundle dies with `Exception: unsupported keyword:
+  export`, surfaced as `Error: the wizer.initialize function trapped` — which
+  looks like a broken toolchain rather than a format problem. Hence
+  `--format=cjs` in the build script.
+- **Do not pre-install binaryen from your package manager.** `install.sh` ships
+  pinned `wasm-merge` and `wasm-opt` builds, and *skips* them when it finds
+  those binaries already on PATH — quietly swapping a known-good toolchain for
+  whatever the distro ships.
+
+The compiler binary also needs GLIBC 2.39 or newer, so Debian 12 and Ubuntu
+22.04 are too old to run it.
+
 ## Install
 
-Upload `dist/plugin.wasm` with its `manifest.json` through
-**Administration → Plugins**. The plugin ships a workflow template
-(*Recover 1970 dates*); enable it per user from **Workflows**.
+Take `plugin.wasm` and `manifest.json` from the
+[latest release](https://github.com/fchaussin/immich-plugin-no-exif-date-fallback/releases/latest)
+and upload them through **Administration → Plugins**. The plugin ships a workflow template
+(*Fix photos dated 1 January 1970*); enable it per user from **Workflows**.
 
 The plugin binary is installed once, server-wide. Workflows are per-user, so
 each account enables the template once — a click at account-creation time, with
