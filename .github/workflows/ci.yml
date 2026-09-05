@@ -108,15 +108,20 @@ jobs:
           cp artefact/dist/plugin.wasm "package/$name/dist/plugin.wasm"
           tar -C package -czf "$name-${GITHUB_REF_NAME}.tar.gz" "$name"
           (cd package && zip -qr "../$name-${GITHUB_REF_NAME}.zip" "$name")
-          sha256sum "$name-${GITHUB_REF_NAME}".* > checksums.txt
-          tar -tzf "$name-${GITHUB_REF_NAME}.tar.gz"
+          # An unversioned copy too, so a documented download URL under
+          # releases/latest/download/ keeps working across releases instead of
+          # going stale the moment the next tag lands.
+          cp "$name-${GITHUB_REF_NAME}.tar.gz" "$name.tar.gz"
+          cp "$name-${GITHUB_REF_NAME}.zip" "$name.zip"
+          sha256sum "$name"*.tar.gz "$name"*.zip > checksums.txt
+          tar -tzf "$name.tar.gz"
           cat checksums.txt
 
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            immich-plugin-no-exif-date-fallback-*.tar.gz
-            immich-plugin-no-exif-date-fallback-*.zip
+            immich-plugin-no-exif-date-fallback*.tar.gz
+            immich-plugin-no-exif-date-fallback*.zip
             checksums.txt
             artefact/dist/plugin.wasm
             artefact/manifest.json
