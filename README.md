@@ -40,18 +40,31 @@ services:
       - ./immich-plugins:/plugins:ro
 ```
 
-Then extract the release into it and restart:
+Then put the plugin in it. Either with the script — it verifies the checksum
+before extracting:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/fchaussin/immich-plugin-no-exif-date-fallback/main/scripts/install.sh
+bash install.sh ./immich-plugins
+```
+
+or by hand:
 
 ```sh
 curl -fsSLO https://github.com/fchaussin/immich-plugin-no-exif-date-fallback/releases/latest/download/immich-plugin-no-exif-date-fallback.tar.gz
 tar -xzf immich-plugin-no-exif-date-fallback.tar.gz -C ./immich-plugins
+```
+
+Either way the archive already has the layout Immich expects
+(`<name>/manifest.json` + `<name>/dist/plugin.wasm`). Then restart — plugins are
+imported at startup only:
+
+```sh
 docker compose restart immich-server
 docker compose logs immich-server | grep -i 'loaded plugin'
 ```
 
 You are looking for `Loaded plugin: immich-plugin-no-exif-date-fallback@…`.
-The archive already has the layout Immich expects
-(`<name>/manifest.json` + `<name>/dist/plugin.wasm`).
 
 ## Enable it, per account
 
@@ -94,7 +107,18 @@ Raising it towards `8760` (a year) will overwrite real dates from 1970 — see
 ## Upgrading
 
 Not just dropping in a new build: Immich cannot upgrade an external plugin in
-place, and fails almost silently when you try. The procedure is in
+place, and fails almost silently when you try — it needs the plugin row deleted
+first, which costs every user their workflow step.
+
+`scripts/update.sh` does it in the right order, showing which workflows it is
+about to empty and asking before it touches the database. Run it **on the Docker
+host**:
+
+```sh
+scripts/update.sh ./immich-plugins
+```
+
+Why any of that is necessary:
 [Immich quirks](docs/immich-notes.md#upgrading-a-plugin-fails-and-says-almost-nothing).
 
 ## Licence
