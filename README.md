@@ -126,14 +126,52 @@ The compiler binary also needs GLIBC 2.39 or newer, so Debian 12 and Ubuntu
 
 ## Install
 
-Take `plugin.wasm` and `manifest.json` from the
-[latest release](https://github.com/fchaussin/immich-plugin-no-exif-date-fallback/releases/latest)
-and upload them through **Administration → Plugins**. The plugin ships a workflow template
-(*Fix photos dated 1 January 1970*); enable it per user from **Workflows**.
+There is **no plugin page in the Immich UI**, and no install API — the server
+imports external plugins from a folder on disk at startup
+(`WorkflowExecutionService.onPluginSync`). Two environment variables gate it:
 
-The plugin binary is installed once, server-wide. Workflows are per-user, so
-each account enables the template once — a click at account-creation time, with
-no secret to hand out.
+| Variable | Value |
+|---|---|
+| `IMMICH_ALLOW_EXTERNAL_PLUGINS` | `true` (defaults to `false`) |
+| `IMMICH_PLUGINS_INSTALL_FOLDER` | a directory the server can read |
+
+Every **sub-directory** of that folder is imported, and each must look like this
+— the layout this repository already produces:
+
+```
+<install folder>/
+└── immich-plugin-no-exif-date-fallback/
+    ├── manifest.json
+    └── dist/
+        └── plugin.wasm      ← the manifest's `wasmPath`, relative to the folder
+```
+
+With Docker Compose:
+
+```yaml
+services:
+  immich-server:
+    environment:
+      IMMICH_ALLOW_EXTERNAL_PLUGINS: 'true'
+      IMMICH_PLUGINS_INSTALL_FOLDER: /plugins
+    volumes:
+      - ./immich-plugins:/plugins:ro
+```
+
+Then take `plugin.wasm` and `manifest.json` from the
+[latest release](https://github.com/fchaussin/immich-plugin-no-exif-date-fallback/releases/latest),
+place them as shown, and **restart the server** — the import only runs at
+startup. `docker logs` will say `Loaded plugin: …` or, if the manifest is
+rejected, list exactly which fields failed validation.
+
+> ⚠️ **Bump `version` in `manifest.json` for every build you want re-imported.**
+> The server skips a plugin whose *manifest hash* it already has, so replacing
+> `plugin.wasm` alone changes nothing — the old bytes stay loaded, silently.
+
+Once loaded, the plugin ships a workflow template (*Fix photos dated 1 January
+1970*). A workflow belongs to a user (`workflow.ownerId` is `NOT NULL`), so it
+is enabled per account — a click at account-creation time, with no secret to
+hand out. The plugin binary itself is installed once, server-wide.
 
 ## Repairing photos already in your library
 
