@@ -61,11 +61,17 @@ instead of being swept up afterwards.
 
 On each asset, after metadata extraction:
 
-1. If the asset's date is at or after `thresholdYear`, do nothing.
-2. Otherwise, if `fileModifiedAt` is itself usable, set `dateTimeOriginal` to it.
+1. If the asset's date is **not within hours of the Unix epoch**, do nothing —
+   however old it is. A scanned 1965 photograph is a real date, not a symptom.
+2. Otherwise, if `fileModifiedAt` is a real date, set `dateTimeOriginal` to it.
 3. If `fileModifiedAt` is *also* at the epoch, do nothing — there is nothing to
    recover, and inventing a plausible-but-wrong date is worse than leaving an
    obvious sentinel you can still find later.
+
+That last rule is why the plugin has no "use today's date" mode. The 1970
+sentinel is what makes these photos findable years afterwards, in one query;
+a photo silently stamped with today is indistinguishable from one taken today,
+and it sits at the top of your timeline forever.
 
 The change goes through the server's normal `assetService.update` path — the
 same one the REST API and the web UI use — so Immich queues a sidecar write and
@@ -82,7 +88,16 @@ is — only its date changes, which is all the timeline needs.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `thresholdYear` | `1971` | Assets dated before 1 January of this year are treated as broken. |
+| `epochWindowHours` | `48` | How far from 1 January 1970 a date can sit and still count as the sentinel. |
+
+The bug lands photos on the epoch *exactly* — `Math.min` against a zero — so the
+match is deliberately narrow. The window exists only because `localDateTime` is
+wall-clock: the same instant reads as `1969-12-31T19:00` in UTC-5. A day either
+side covers every offset (max ±14 h) and still cannot reach a plausible date.
+
+> An earlier version treated everything before 1971 as broken. That silently
+> clobbered legitimately old photos, which is exactly the failure this plugin is
+> supposed to prevent.
 
 ## Requirements
 
@@ -168,8 +183,18 @@ rejected, list exactly which fields failed validation.
 > The server skips a plugin whose *manifest hash* it already has, so replacing
 > `plugin.wasm` alone changes nothing — the old bytes stay loaded, silently.
 
-Once loaded, the plugin ships a workflow template (*Fix photos dated 1 January
-1970*). A workflow belongs to a user (`workflow.ownerId` is `NOT NULL`), so it
+Once loaded, enable it for an account with one command:
+
+```sh
+IMMICH_URL=http://immich.local:2283 IMMICH_API_KEY=… node scripts/enable.mjs
+```
+
+It is idempotent, and it checks the plugin is actually installed first — without
+that, the API rejects the workflow with a message that never mentions plugins.
+
+The plugin also ships a workflow template (*Fix photos dated 1 January 1970*)
+for anyone preferring the UI, at `/workflows` — a top-level page, not something
+under Administration. A workflow belongs to a user (`workflow.ownerId` is `NOT NULL`), so it
 is enabled per account — a click at account-creation time, with no secret to
 hand out. The plugin binary itself is installed once, server-wide.
 
@@ -187,7 +212,7 @@ id=$(curl -sX POST "$IMMICH_URL/api/workflows" -H "x-api-key: $KEY" \
     "enabled": true,
     "steps": [{
       "method": "immich-plugin-no-exif-date-fallback#fallbackToFileDate",
-      "config": { "thresholdYear": 1971 },
+      "config": { "epochWindowHours": 48 },
       "enabled": true
     }]
   }' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')

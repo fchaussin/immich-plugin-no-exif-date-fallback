@@ -1,24 +1,24 @@
 {
   "name": "immich-plugin-no-exif-date-fallback",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "title": "No-EXIF Date Fallback",
-  "description": "Photos received through WhatsApp, Messenger or Instagram arrive with their EXIF stripped entirely, and the Immich mobile app then dates them 1970-01-01. This falls back to the file's own modification date — the date your phone displays — which survives the upload intact.",
+  "description": "Photos received through WhatsApp, Messenger or Instagram arrive with their EXIF stripped entirely, and the Immich mobile app then dates them 1 January 1970. This falls back to the file's own modification date — the date your phone displays — which survives the upload intact.",
   "author": "Francois Chaussin",
   "wasmPath": "dist/plugin.wasm",
   "methods": [
     {
       "name": "fallbackToFileDate",
-      "title": "Fall back to the file's date when EXIF has none",
-      "description": "When an asset is dated at or near the Unix epoch, because the file carried no EXIF date and the uploading client sent an empty capture date, replace it with the file's modification date.",
+      "title": "Use the file's date when EXIF has none",
+      "description": "An asset sitting on the Unix epoch was dated from an empty capture date, not from its content. Replace that date with the file's own modification date.",
       "types": ["AssetV1"],
       "hostFunctions": false,
       "schema": {
         "type": "object",
         "properties": {
-          "thresholdYear": {
+          "epochWindowHours": {
             "type": "number",
-            "title": "Treat dates before this year as broken",
-            "description": "Any asset dated before 1 January of this year is considered mis-dated. Photography predating this is not expected in a phone backup."
+            "title": "Hours around 1 January 1970 to treat as broken",
+            "description": "The bug lands photos exactly on the Unix epoch, so only dates within this many hours of it are repaired. A day either side absorbs timezone offsets while leaving genuinely old photos — a scanned 1965 picture, say — untouched. Default 48."
           }
         }
       }
@@ -28,12 +28,12 @@
     {
       "name": "immich-plugin-no-exif-date-fallback",
       "title": "Fix photos dated 1 January 1970",
-      "description": "Runs after metadata extraction. For WhatsApp, Messenger and Instagram photos that arrive with no EXIF date, uses the date the file itself carries instead of the epoch.",
+      "description": "Runs after metadata extraction. WhatsApp, Messenger and Instagram photos arrive with no EXIF date and land on 1 January 1970; this dates them from the file instead.",
       "trigger": "AssetMetadataExtraction",
       "steps": [
         {
           "method": "immich-plugin-no-exif-date-fallback#fallbackToFileDate",
-          "config": { "thresholdYear": 1971 },
+          "config": { "epochWindowHours": 48 },
           "enabled": true
         }
       ]

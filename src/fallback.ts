@@ -28,7 +28,25 @@
  * it is what the phone shows, so it is the date a viewer expects.
  */
 
-export const DEFAULT_THRESHOLD_YEAR = 1971;
+/**
+ * The bug produces the Unix epoch EXACTLY — `Math.min` against a zero, not "some
+ * date in 1970". So the sentinel is matched precisely rather than by year.
+ *
+ * An earlier version treated everything before 1971 as broken. That silently
+ * clobbered legitimately old photos: a scan of a 1965 family picture, dated by
+ * hand, would have been "corrected" to the date its file happened to carry. The
+ * window below is the whole guard against that class of false positive — a
+ * digitised photo is only ever touched if it sits within hours of the epoch,
+ * which no real capture date does.
+ *
+ * The window exists at all because `localDateTime` is wall-clock: the same
+ * instant reads as 1969-12-31T19:00 in UTC-5. A day either side covers every
+ * offset (max ±14 h) with room to spare, and still cannot reach a plausible
+ * date.
+ */
+export const DEFAULT_EPOCH_WINDOW_HOURS = 48;
+
+const EPOCH_MS = 0;
 
 export type Asset = {
   localDateTime?: string | null;
@@ -38,23 +56,25 @@ export type Asset = {
 
 export type Payload = {
   data?: { asset?: Asset };
-  config?: { thresholdYear?: number };
+  config?: { epochWindowHours?: number };
 };
 
 export type Response = {
   changes?: { asset?: { exifInfo?: { dateTimeOriginal: string } } };
 };
 
-/** An ISO date string we can act on, or null if it is absent or itself broken. */
-export const usableDate = (value: unknown, thresholdYear: number): string | null => {
+const parse = (value: unknown): Date | null => {
   if (typeof value !== 'string' || value === '') {
     return null;
   }
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return date.getUTCFullYear() >= thresholdYear ? date.toISOString() : null;
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/** True when a date sits close enough to the epoch to be the sentinel, not a real date. */
+export const isEpochSentinel = (value: unknown, windowHours: number): boolean => {
+  const date = parse(value);
+  return date !== null && Math.abs(date.getTime() - EPOCH_MS) <= windowHours * 3_600_000;
 };
 
 export const fallback = (payload: Payload): Response => {
@@ -63,23 +83,23 @@ export const fallback = (payload: Payload): Response => {
     return {};
   }
 
-  const thresholdYear =
-    typeof payload.config?.thresholdYear === 'number'
-      ? payload.config.thresholdYear
-      : DEFAULT_THRESHOLD_YEAR;
+  const windowHours =
+    typeof payload.config?.epochWindowHours === 'number'
+      ? payload.config.epochWindowHours
+      : DEFAULT_EPOCH_WINDOW_HOURS;
 
   // `localDateTime` is what the timeline sorts on, so it is what a user sees as
   // wrong. Fall back to `fileCreatedAt` if the payload omits it.
   const shown = asset.localDateTime ?? asset.fileCreatedAt;
-  if (usableDate(shown, thresholdYear) !== null) {
-    return {}; // already sane — leave it alone
+  if (!isEpochSentinel(shown, windowHours)) {
+    return {}; // a real date, however old — leave it alone
   }
 
   // Only act if the file's own date is worth harvesting. If it is at the epoch
   // too there is nothing to recover, and inventing a plausible-but-wrong date
   // would be worse than 1970: an obvious sentinel is still findable later.
-  const recovered = usableDate(asset.fileModifiedAt, thresholdYear);
-  if (recovered === null) {
+  const recovered = parse(asset.fileModifiedAt);
+  if (recovered === null || isEpochSentinel(asset.fileModifiedAt, windowHours)) {
     return {};
   }
 
@@ -87,5 +107,5 @@ export const fallback = (payload: Payload): Response => {
   // API and web UI use: it queues a sidecar write, so the corrected date lands
   // in an XMP file on disk and not only in the database. Servers with the
   // storage template engine enabled also re-file the photo under its new date.
-  return { changes: { asset: { exifInfo: { dateTimeOriginal: recovered } } } };
+  return { changes: { asset: { exifInfo: { dateTimeOriginal: recovered.toISOString() } } } };
 };
