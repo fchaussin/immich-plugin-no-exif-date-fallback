@@ -173,6 +173,43 @@ Once loaded, the plugin ships a workflow template (*Fix photos dated 1 January
 is enabled per account — a click at account-creation time, with no secret to
 hand out. The plugin binary itself is installed once, server-wide.
 
+Creating the workflow over the API rather than in the UI takes two calls, not
+one: `POST /api/workflows` accepts a `steps` array but **stores none of it**, so
+the step has to be attached with a follow-up `PUT`.
+
+```sh
+id=$(curl -sX POST "$IMMICH_URL/api/workflows" -H "x-api-key: $KEY" \
+  -H 'Content-Type: application/json' -d '{
+    "trigger": "AssetMetadataExtraction",
+    "name": "Fix photos dated 1 January 1970",
+    "enabled": true
+  }' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
+
+curl -sX PUT "$IMMICH_URL/api/workflows/$id" -H "x-api-key: $KEY" \
+  -H 'Content-Type: application/json' -d '{
+    "steps": [{
+      "method": "immich-plugin-no-exif-date-fallback#fallbackToFileDate",
+      "config": { "thresholdYear": 1971 },
+      "enabled": true
+    }]
+  }'
+```
+
+## Verified end to end
+
+On Immich **v3.1.0**, a 160-byte JPEG with no EXIF segment was uploaded with
+`fileCreatedAt=1970-01-01` and `fileModifiedAt=2024-07-23` — the exact shape the
+mobile app produces for a Messenger image. With the workflow enabled the asset
+came back as:
+
+```
+fileCreatedAt    2024-07-23T16:38:20.000Z
+localDateTime    2024-07-23T16:38:20.000Z
+dateTimeOriginal 2024-07-23T16:38:20+00:00
+```
+
+No manual step, no API key involved in the correction itself.
+
 ## Repairing photos already in your library
 
 This plugin fires on upload, so it does not touch what is already there.
