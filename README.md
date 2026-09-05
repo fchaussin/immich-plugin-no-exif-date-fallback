@@ -173,15 +173,46 @@ services:
       - ./immich-plugins:/plugins:ro
 ```
 
-Then take `plugin.wasm` and `manifest.json` from the
+Then grab the tarball from the
 [latest release](https://github.com/fchaussin/immich-plugin-no-exif-date-fallback/releases/latest),
-place them as shown, and **restart the server** — the import only runs at
-startup. `docker logs` will say `Loaded plugin: …` or, if the manifest is
-rejected, list exactly which fields failed validation.
+extract it into that folder, and **restart the server** — the import only runs at
+startup:
 
-> ⚠️ **Bump `version` in `manifest.json` for every build you want re-imported.**
-> The server skips a plugin whose *manifest hash* it already has, so replacing
-> `plugin.wasm` alone changes nothing — the old bytes stay loaded, silently.
+```sh
+curl -fsSL -O https://github.com/fchaussin/immich-plugin-no-exif-date-fallback/releases/latest/download/immich-plugin-no-exif-date-fallback-v0.2.0.tar.gz
+tar -xzf immich-plugin-no-exif-date-fallback-v0.2.0.tar.gz -C /path/to/your/plugins/folder
+docker compose restart immich-server
+docker compose logs immich-server | grep -i plugin
+```
+
+You should see `Loaded plugin: immich-plugin-no-exif-date-fallback@0.2.0`. If
+the manifest is rejected, the log lists exactly which fields failed validation.
+
+### Upgrading is not just dropping in a new build
+
+Two separate traps, both silent:
+
+- **Same version, changed files → nothing happens.** The server skips a plugin
+  whose *manifest hash* it already holds, so replacing `plugin.wasm` alone
+  leaves the old bytes loaded.
+- **New version → the import fails.** Immich upserts with
+  `ON CONFLICT (name, version)` while the table also carries a `UNIQUE (name)`
+  constraint, so a version change misses the conflict target and dies on
+  `plugin_name_uq`. All you get is one `WARN` at boot; the server keeps serving
+  the *old* version as if nothing happened.
+
+So an in-place upgrade means removing the plugin first:
+
+```sql
+DELETE FROM plugin WHERE name = 'immich-plugin-no-exif-date-fallback';
+```
+
+then restart. ⚠️ That cascades through `plugin_method` to `workflow_step`, so
+every user's workflow loses its step — the workflow row survives, empty. Delete
+the empty workflow and re-run `scripts/enable.mjs` for each account afterwards.
+
+*(Observed on v3.1.0. This is an Immich bug, not a plugin one — it applies to
+any external plugin.)*
 
 Once loaded, enable it for an account with one command:
 

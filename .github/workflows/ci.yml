@@ -78,22 +78,47 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           name: plugin
+          # The artefact keeps the paths it was uploaded with, so the wasm
+          # arrives at dist/plugin.wasm — not at the root. Naming it wrongly
+          # here does not fail the job, it just ships a release without the
+          # plugin in it.
+          path: artefact
 
       # The manifest's version is what Immich stores, and it is what makes a
       # reinstall visible as an upgrade. A tag that disagrees with it would ship
       # a build the server cannot tell apart from the previous one.
       - name: Check the tag matches the manifest version
         run: |
-          manifest_version=$(python3 -c 'import json;print(json.load(open("manifest.json"))["version"])')
+          manifest_version=$(python3 -c 'import json;print(json.load(open("artefact/manifest.json"))["version"])')
           tag_version="${GITHUB_REF_NAME#v}"
           if [ "$manifest_version" != "$tag_version" ]; then
             echo "::error::tag $GITHUB_REF_NAME does not match manifest version $manifest_version"
             exit 1
           fi
 
+      # Ship the exact directory Immich expects, so installing is "extract into
+      # IMMICH_PLUGINS_INSTALL_FOLDER" and nothing else. Loose files invite
+      # people to guess the layout, and a wrong guess fails silently — the
+      # server logs a warning at boot and carries on without the plugin.
+      - name: Package a ready-to-install folder
+        run: |
+          name=immich-plugin-no-exif-date-fallback
+          mkdir -p "package/$name/dist"
+          cp artefact/manifest.json "package/$name/manifest.json"
+          cp artefact/dist/plugin.wasm "package/$name/dist/plugin.wasm"
+          tar -C package -czf "$name-${GITHUB_REF_NAME}.tar.gz" "$name"
+          (cd package && zip -qr "../$name-${GITHUB_REF_NAME}.zip" "$name")
+          sha256sum "$name-${GITHUB_REF_NAME}".* > checksums.txt
+          tar -tzf "$name-${GITHUB_REF_NAME}.tar.gz"
+          cat checksums.txt
+
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            plugin.wasm
-            manifest.json
+            immich-plugin-no-exif-date-fallback-*.tar.gz
+            immich-plugin-no-exif-date-fallback-*.zip
+            checksums.txt
+            artefact/dist/plugin.wasm
+            artefact/manifest.json
           generate_release_notes: true
+          fail_on_unmatched_files: true
