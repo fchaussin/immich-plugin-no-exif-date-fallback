@@ -67,10 +67,16 @@ On each asset, after metadata extraction:
    recover, and inventing a plausible-but-wrong date is worse than leaving an
    obvious sentinel you can still find later.
 
-The change goes through the server's normal `assetService.update` path, so
-Immich reorganises the file under your storage template and writes an XMP
-sidecar beside it. The corrected date therefore also lands **on disk**, which
-means it survives a re-import and is picked up by whatever backs up your library.
+The change goes through the server's normal `assetService.update` path — the
+same one the REST API and the web UI use — so Immich queues a sidecar write and
+the corrected date lands in an XMP file next to the photo. It therefore also
+exists **on disk**, not only in the database: it survives a re-import, and it is
+picked up by whatever backs up your library.
+
+If you have the **storage template** engine enabled, Immich also re-files the
+photo under its corrected date on its own; there is no migration job to run
+afterwards. With the template disabled (the default), the file stays where it
+is — only its date changes, which is all the timeline needs.
 
 ### Configuration
 

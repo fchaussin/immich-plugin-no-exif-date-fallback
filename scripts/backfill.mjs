@@ -91,6 +91,7 @@ for (const a of fixable) {
 
 console.log(`\n✓ ${ok}/${fixable.length} asset(s) re-dated.`);
 if (ok > 0) {
-  console.log('  Immich files them under the right year and writes an XMP sidecar');
-  console.log('  next to each photo — nothing else to run.');
+  console.log('  Immich writes an XMP sidecar next to each photo, so the corrected');
+  console.log('  date is on disk too. With the storage template engine enabled it also');
+  console.log('  re-files them under the new date — nothing else to run either way.');
 }

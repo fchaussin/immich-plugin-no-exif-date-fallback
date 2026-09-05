@@ -83,8 +83,9 @@ export const fallback = (payload: Payload): Response => {
     return {};
   }
 
-  // Applied by the server through `assetService.update`, which is the same path
-  // the REST API uses: it reorganises the file under the storage template and
-  // writes an XMP sidecar next to it, so the date also lands on disk.
+  // Applied by the server through `assetService.update`, the same path the REST
+  // API and web UI use: it queues a sidecar write, so the corrected date lands
+  // in an XMP file on disk and not only in the database. Servers with the
+  // storage template engine enabled also re-file the photo under its new date.
   return { changes: { asset: { exifInfo: { dateTimeOriginal: recovered } } } };
 };
