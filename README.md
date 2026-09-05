@@ -173,27 +173,33 @@ Once loaded, the plugin ships a workflow template (*Fix photos dated 1 January
 is enabled per account — a click at account-creation time, with no secret to
 hand out. The plugin binary itself is installed once, server-wide.
 
-Creating the workflow over the API rather than in the UI takes two calls, not
-one: `POST /api/workflows` accepts a `steps` array but **stores none of it**, so
-the step has to be attached with a follow-up `PUT`.
+Creating the workflow over the API rather than in the UI is a single call — but
+its **response always reports `steps: []`**, whatever you sent
+(`mapWorkflow({ ...workflow, steps: [] })` in `workflow.service.ts`). The steps
+*are* stored; only the echo is empty. Confirm with a `GET` rather than believing
+the `POST`, and do not "fix" it with a redundant `PUT`.
 
 ```sh
 id=$(curl -sX POST "$IMMICH_URL/api/workflows" -H "x-api-key: $KEY" \
   -H 'Content-Type: application/json' -d '{
     "trigger": "AssetMetadataExtraction",
     "name": "Fix photos dated 1 January 1970",
-    "enabled": true
-  }' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
-
-curl -sX PUT "$IMMICH_URL/api/workflows/$id" -H "x-api-key: $KEY" \
-  -H 'Content-Type: application/json' -d '{
+    "enabled": true,
     "steps": [{
       "method": "immich-plugin-no-exif-date-fallback#fallbackToFileDate",
       "config": { "thresholdYear": 1971 },
       "enabled": true
     }]
-  }'
+  }' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
+
+curl -s "$IMMICH_URL/api/workflows/$id" -H "x-api-key: $KEY"   # steps are there
 ```
+
+`ownerId` is taken from the authenticated caller and cannot be set
+(`ownerId: auth.user.id`), so an admin cannot create a workflow on someone
+else's behalf: each account enables it itself. `GET /api/workflows/:id/share`
+exports a workflow *definition* for someone else to recreate — it does not grant
+anyone access to yours.
 
 ## Verified end to end
 
